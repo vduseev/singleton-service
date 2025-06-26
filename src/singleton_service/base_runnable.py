@@ -1,5 +1,6 @@
 from .base_service import BaseService
 
+
 class BaseRunnable(BaseService):
     @classmethod
     def run_sync(cls) -> None:

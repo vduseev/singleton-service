@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import defaultdict
 from typing import (
     Set,
@@ -17,26 +17,26 @@ class BaseService(ABC):
     _initialized: bool = False
     _dependencies: Set[Type["BaseService"]] = set()
 
+    def __new__(cls, *args, **kwargs) -> "BaseService":
+        # Prevent BaseService or anyone who inherits from it from being
+        # instantiated.
+        raise RuntimeError("BaseService is not instantiable")
+
     @classmethod
-    @abstractmethod
     def initialize(cls) -> None:
         """Initialization logic for this service.
 
         If you can't initialize the service, raise an exception.
         """
-        pass
 
     @classmethod
-    @abstractmethod
     def ping(cls) -> bool:
         """Check if the service is correctly initialized.
 
         Implement this so that the framework can check whether the service
         was correctly initialized.
-
-        This method should not raise any exceptions.
         """
-        pass
+        return True
 
     @classmethod
     def _get_all_dependencies(cls) -> Set[Type["BaseService"]]:
@@ -124,7 +124,15 @@ class BaseService(ABC):
         cls.initialize()
 
         # Verify that the service is correctly initialized
-        if not cls.ping():
+        try:
+            ping_result = cls.ping()
+        except Exception as e:
+            raise ServiceInitializationError(
+                f"Service {cls.__name__} failed to initialize "
+                f"because its ping method raised an exception: {e}"
+            )
+
+        if not ping_result:
             raise ServiceInitializationError(
                 f"Service {cls.__name__} failed to initialize "
                 "because its ping method returned False"
