@@ -1,10 +1,12 @@
-from .base_provider import BaseProvider
-from .decorators import requires, guarded
 from . import exceptions
+from .provider import BaseProvider
+from .main import requires, initialized, Initialized
+
 
 __all__ = [
     "BaseProvider",
     "requires",
-    "guarded",
+    "initialized",
+    "Initialized",
     "exceptions",
 ]

@@ -5,18 +5,22 @@ from typing import (
     ParamSpec,
     TypeVar,
     overload,
+    Any,
 )
-from .base_provider import BaseProvider
+
+from .provider import BaseProvider
 
 
 _T = TypeVar("_T")
 """Type of the BaseProvider class"""
+_T_co = TypeVar("_T_co", covariant=True)
+"""Type of the BaseProvider class (covariant)."""
 _P = ParamSpec("_P")
 """Parameters of the decorated method, except cls itself."""
 _R_co = TypeVar("_R_co", covariant=True)
 """Return type of the decorated method (covariant).
 
-Covariant, because the @guarded decorator only uses _R_co to define what
+Covariant, because the @initialize decorator only uses _R_co to define what
 is being returned. It doesn't modify it or accept it as an argument.
 """
 _BaseProviderT = TypeVar("_BaseProviderT", bound=BaseProvider)
@@ -72,7 +76,7 @@ def requires(
     ...
 
 
-class guarded(Generic[_T, _P, _R_co]):
+class initialized(Generic[_T, _P, _R_co]):
     """Ensure provider and its dependencies are initialized before method execution.
     
     This decorator guarantees that when a method is called, the provider and all
@@ -105,7 +109,7 @@ class guarded(Generic[_T, _P, _R_co]):
         ```python
         @requires(DatabaseProvider)
         class UserProvider(BaseProvider):
-            @guarded
+            @initialize
             def get_user(cls, user_id: int) -> User:
                 # DatabaseProvider guaranteed to be initialized here
                 return DatabaseProvider.fetch_user(user_id)
@@ -115,7 +119,7 @@ class guarded(Generic[_T, _P, _R_co]):
         ```python
         @requires(APIProvider)
         class WeatherProvider(BaseProvider):
-            @guarded
+            @initialize
             async def get_weather(cls, city: str) -> Weather:
                 # APIProvider guaranteed to be initialized here
                 return await APIProvider.fetch_weather(city)
@@ -125,7 +129,7 @@ class guarded(Generic[_T, _P, _R_co]):
         ```python
         @requires(DatabaseProvider, CacheProvider, MetricsProvider)
         class UserProvider(BaseProvider):
-            @guarded
+            @initialize
             @asynccontextmanager
             async def get_user_with_metrics(cls, user_id: int) -> AsyncGenerator[User, None]:
                 # All three providers guaranteed to be initialized here
@@ -173,6 +177,12 @@ class guarded(Generic[_T, _P, _R_co]):
     @property
     def __wrapped__(self) -> Callable[Concatenate[type[_T], _P], _R_co]: ...
 
-    # if guarded was decorated with @classmethod, this will be a callable
+    # if initialize was decorated with @classmethod, this will be a callable
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
     _is_coroutine: bool
+
+class GuardedAttribute(Generic[_T_co]): ...
+
+def Initialized() -> GuardedAttribute[Any]:
+    """Require the provider attribute to be initialized inside initialize()."""
+    ...

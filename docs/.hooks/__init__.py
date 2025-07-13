@@ -1,0 +1,1 @@
+# MkDocs hooks for singleton-service documentation
