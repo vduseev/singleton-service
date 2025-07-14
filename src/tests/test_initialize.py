@@ -1,0 +1,219 @@
+import pytest
+
+from singleton_provider import BaseProvider, init, requires
+from singleton_provider.exceptions import (
+    CircularDependency,
+    InitializeCalledDirectly,
+    InitializeReturnedFalse,
+    ProviderInitializationError,
+    SelfDependency,
+    AttributeNotInitialized,
+)
+
+
+def test_access_before_initialize(clean_sys_modules):
+    class Provider(BaseProvider):
+        _init_counter = 0
+
+        @classmethod
+        def initialize(cls):
+            cls._init_counter += 1
+
+    assert Provider.__provider_initialized__ is False
+    assert Provider._init_counter == 0
+
+
+def test_assign_before_initialize(clean_sys_modules):
+    class Provider(BaseProvider):
+        data: str
+        _init_counter = 0
+
+        @classmethod
+        def initialize(cls):
+            cls.data = "data"
+            cls._init_counter += 1
+
+    assert Provider._init_counter == 0
+    assert "data" in Provider.__provider_guarded_attrs__
+    
+    Provider.data = "other"
+    assert "data" not in Provider.__provider_guarded_attrs__
+    assert Provider._init_counter == 0
+    assert Provider.data == "other"
+    assert Provider.__provider_guarded_attrs__ == set()
+    assert Provider.__provider_initialized__ is False
+    assert Provider._init_counter == 0
+
+
+def test_dependency_order(clean_sys_modules):
+    order = []
+
+    class ProviderA(BaseProvider):
+        a: str
+        _init_counter = 0
+
+        @classmethod
+        def initialize(cls):
+            cls.a = "A"
+            cls._init_counter += 1
+            order.append("A")
+
+        @init
+        def get_a(cls) -> str:
+            return cls.a
+
+    @requires(ProviderA)
+    class ProviderB(BaseProvider):
+        """Docstring of provider B"""
+        b: str
+        """Docstring of guarded attribute B"""
+        _init_counter = 0
+        """init counter of provider B"""
+
+        @classmethod
+        def initialize(cls):
+            cls.b = "B"
+            cls._init_counter += 1
+            order.append("B")
+
+    @requires(ProviderA, ProviderB)
+    class ProviderC(BaseProvider):
+        c: str = "C"
+        """Docstring of initialized attribute C"""
+        _init_counter = 0
+        """init counter of provider C"""
+
+        @classmethod
+        def initialize(cls):
+            cls._init_counter += 1
+            order.append("C")
+
+        @init
+        def get_abc(cls) -> str:
+            """Docstring of get_abc method"""
+            return f"{ProviderA.a}{ProviderB.b}{cls.c}"
+
+    # Accessing A first, doesn't trigger initialization in B or C
+    assert ProviderA.a == "A"
+    assert ProviderA.get_a() == "A"
+    assert ProviderA._init_counter == 1
+    assert ProviderB._init_counter == 0
+    assert ProviderC._init_counter == 0
+    assert order == ["A"]
+
+    # Accessing C triggers initialization in A, B, and C
+    assert ProviderC.get_abc() == "ABC"
+    assert order == ["A", "B", "C"]
+    assert ProviderA._init_counter == 1
+    assert ProviderB._init_counter == 1
+    assert ProviderC._init_counter == 1
+
+    # Accessing B triggers nothing, because everything is already initialized
+    assert ProviderB.b == "B"
+    assert ProviderA._init_counter == 1
+    assert ProviderB._init_counter == 1
+    assert ProviderC._init_counter == 1
+    assert order == ["A", "B", "C"]
+
+
+def test_circular_dependency_detection(clean_sys_modules):
+    """craft two providers with mutual @requires; importing class raises CircularDependency."""
+    class CircularA(BaseProvider):
+        @classmethod
+        def initialize(cls) -> None:
+            pass
+        
+        @init
+        def get_a(cls) -> str:
+            return "a"
+    
+    @requires(CircularA)
+    class CircularB(BaseProvider):
+        @classmethod
+        def initialize(cls) -> None:
+            pass
+        
+        @init
+        def get_b(cls) -> str:
+            return "b"
+    
+    # Now create the circular dependency by making A depend on B
+    CircularA.__provider_dependencies__ = {CircularB}
+    
+    # Accessing either should detect the circular dependency
+    with pytest.raises(CircularDependency):
+        CircularA.get_a()
+    
+    with pytest.raises(CircularDependency):
+        CircularB.get_b()
+
+
+def test_self_dependency_detection(clean_sys_modules):
+    class SelfDependentProvider(BaseProvider):
+        _init_counter = 0
+        value: int
+
+        @classmethod
+        def initialize(cls) -> None:
+            cls.value = cls.compute_value()
+            cls._init_counter += 1
+        
+        @init
+        def compute_value(cls) -> int:
+            return cls._init_counter
+
+    with pytest.raises(SelfDependency):
+        SelfDependentProvider.value
+
+    assert SelfDependentProvider._init_counter == 0
+
+
+def test_initialize_called_directly(clean_sys_modules):
+    class Provider(BaseProvider):
+        @classmethod
+        def initialize(cls) -> bool:
+            pass
+
+    with pytest.raises(InitializeCalledDirectly):
+        Provider.initialize()
+
+
+def test_initialize_raise_exception(clean_sys_modules):
+    class FailingProvider(BaseProvider):
+        _init_counter = 0
+
+        @classmethod
+        def initialize(cls):
+            cls._init_counter += 1
+            raise ValueError("Database connection failed")
+        
+        @init
+        def get_counter(cls):
+            return cls._init_counter
+    
+    with pytest.raises(ProviderInitializationError):
+        FailingProvider.get_counter()
+
+
+def test_initialize_return_false(clean_sys_modules):
+    class Provider(BaseProvider):
+        users: list[str]
+        
+        @classmethod
+        def initialize(cls) -> bool:
+            return False
+
+    with pytest.raises(InitializeReturnedFalse):
+        Provider.users
+
+
+def test_attribute_unset_error(clean_sys_modules):
+    class BadProvider(BaseProvider):
+        unset_attribute: str
+        
+        @classmethod
+        def initialize(cls):
+            pass
+    
+    with pytest.raises(AttributeNotInitialized):
+        BadProvider.unset_attribute

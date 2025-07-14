@@ -49,11 +49,11 @@ class CircularDependency(ProviderError):
     
     def __init__(
         self,
-        name: str,
+        provider: str,
         recursion_stack: list[str],
     ):
         super().__init__(
-            f"Circular dependency in provider {name} within "
+            f"Circular dependency in provider {provider} within "
             f"recursion stack: {', '.join(recursion_stack)}"
         )
 
@@ -67,9 +67,9 @@ class InitializationOrderMismatch(ProviderError):
     the initialization order length.
     """
 
-    def __init__(self, name: str, order: list[str], dependencies: list[str]):
+    def __init__(self, provider: str, order: list[str], dependencies: list[str]):
         super().__init__(
-            f"Number of dependencies for provider {name} does not match "
+            f"Number of dependencies for provider {provider} does not match "
             f"the initialization order. Order: {', '.join(order)}. "
             f"Dependencies: {', '.join(dependencies)}"
         )
@@ -87,71 +87,17 @@ class SetupError(ProviderError):
         )
 
 
-class DependencyNotInitialized(ProviderError):
-    """Raised when a dependency provider is not properly initialized.
+class InitializeReturnedFalse(ProviderError):
+    """Raised when a provider's initialize() method returns False.
     
-    This error occurs when a provider tries to access a dependency that
-    has not been initialized yet. This should not happen when using
-    @initialize methods properly, but may occur if providers are accessed
-    directly without the decorator.
-    
-    Note:
-        This error indicates a programming error in provider usage.
-        Always use @initialize methods to access providers.
+    This error occurs when the provider's initialize() method returns False.
     """
     
-    def __init__(self, provider_name: str, dependency_name: str):
-        message = (
-            f"Provider '{provider_name}' tried to access dependency '{dependency_name}' "
-            "which is not initialized. Use @initialize methods to ensure proper initialization."
+    def __init__(self, provider: str):
+        super().__init__(
+            f"Failed to initialize provider {provider} because "
+            "initialize() returned False."
         )
-        super().__init__(message)
-
-
-class ProviderNotInitialized(ProviderError):
-    """Raised when a provider is accessed before being initialized.
-    
-    This error occurs when trying to use a provider that hasn't been
-    initialized yet. This should not happen when using @initialize methods
-    properly.
-    
-    Note:
-        This error indicates a programming error in provider usage.
-        Always use @initialize methods to access providers.
-    """
-    
-    def __init__(self, provider_name: str):
-        message = (
-            f"Provider '{provider_name}' is not initialized. "
-            "Use @initialize methods to ensure proper initialization."
-        )
-        super().__init__(message)
-
-
-class AttributeNotInitialized(ProviderError):
-    """Raised when a provider attribute is accessed before being initialized.
-    
-    This error occurs when trying to use a provider attribute that hasn't been
-    initialized yet.
-    """
-
-    def __init__(self, provider: type, attr: str):
-        message = (
-            f"Provider '{provider.__name__}' attribute '{attr}' was never "
-            "set in initialize()."
-        )
-        super().__init__(message)
-
-
-class GuardedAttributeAssignment(ProviderError):
-    """Raised when value is assigned to a provider attribute outside of initialize()."""
-
-    def __init__(self, provider: type, attr: str):
-        message = (
-            f"Provider '{provider.__name__}' attribute '{attr}' may be assigned "
-            "only inside initialize()."
-        )
-        super().__init__(message)
 
 
 class ProviderInitializationError(ProviderError):
@@ -167,49 +113,77 @@ class ProviderInitializationError(ProviderError):
                 # This might raise an exception
                 cls._connection = connect_to_database()
         ```
-        
-    Solutions:
-        - Check that external dependencies (databases, APIs) are available
-        - Verify configuration values are correct
-        - Ensure required environment variables are set
-        - Check network connectivity and permissions
     """
     
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, provider: str, dep: str, exception: Exception):
+        super().__init__(
+            f"Failed to initialize provider {provider}"
+            f"{' because of dependency ' + dep if dep != provider else ''}"
+            f" ({type(exception).__name__}: {exception})"
+        )
 
 
 class SelfDependency(ProviderError):
-    """Raised when a provider tries to call its own @initialize methods during initialization.
-    
-    This error occurs when a provider's initialize() method tries to call
-    other @initialize methods from the same provider. This is not allowed
-    because it would create a dependency cycle within the provider itself.
-    
-    The framework detects this pattern by inspecting the call stack and
-    raises this error to prevent infinite recursion.
+    """Provider method decorated with @init was called from within initialize().
+
+    Calling provider class method decorated with @init causes the provider
+    and its dependencies to be initialized, if they weren't already. Calling
+    an @init decorated method from within initialize() creates a self
+    dependency loop.
+
+    Methods decorated with @classmethod or @staticmethod can be called from
+    within initialize() without causing a self dependency loop, but cannot
+    rely on uninitialized attributes or other @init decorated methods.
     
     Example:
-        This would cause a SelfDependencyError:
         ```python
         class UserProvider(BaseProvider):
+            users: list[str]
+
             @classmethod
             def initialize(cls) -> None:
-                # This is not allowed!
-                cls.load_initial_data()  # Calls @initialize method
-                
+                cls.users = cls.load_users() # ← This is fine.
+                cls.add_user("user3") # ← This will raise SelfDependency.
+
             @classmethod
-            @initialize
-            def load_initial_data(cls) -> None:
-                # This method is @initialize and called from initialize()
-                pass
+            def load_users(cls) -> list[str]:
+                return ["user1", "user2"]
+
+            @init
+            def add_user(cls, user: str) -> None:
+                cls.users.append(user)  
         ```
-        
-    Solutions:
-        - Move the logic from the @initialize method into initialize() directly
-        - Create a private helper method without @initialize
-        - Restructure the initialization logic to avoid self-calls
     """
     
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, name: str, method: str):
+        super().__init__(
+            f"Provider method {method} decorated with @init was called "
+            f"from within initialize() of its class {name}"
+        )
+
+
+class AttributeNotInitialized(ProviderError):
+    """Raised when a provider attribute is accessed before being initialized.
+    
+    This error occurs when trying to use a provider attribute that hasn't been
+    initialized yet.
+    """
+
+    def __init__(self, provider: str, attr: str):
+        super().__init__(
+            f"Provider {provider} attribute {attr} was never "
+            "set in initialize()."
+        )
+
+
+class ProviderDefinitionError(ProviderError):
+    """Raised when a provider is defined incorrectly."""
+
+
+class InitializeCalledDirectly(ProviderError):
+    """Raised when a provider's initialize() method is called directly."""
+
+    def __init__(self, provider: str):
+        super().__init__(
+            f"Provider {provider} initialize() method cannot be called directly."
+        )

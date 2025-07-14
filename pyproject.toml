@@ -64,3 +64,6 @@ examples = [
     "requests>=2.28.0",
     "aiofiles>=23.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
