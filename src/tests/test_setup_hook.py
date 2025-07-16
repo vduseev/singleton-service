@@ -19,10 +19,9 @@ def test_setup_runs_once(clean_sys_modules):
         _sdata: str
         _init_counter = 0
 
-        @classmethod
-        def initialize(cls):
-            cls._data = "data1"
-            cls._init_counter += 1
+        def __init__(self):
+            self._data = "data1"
+            self._init_counter += 1
         
         @init
         def set_data(cls, data: str):
@@ -32,10 +31,9 @@ def test_setup_runs_once(clean_sys_modules):
         data: str
         _init_counter = 0
 
-        @classmethod
-        def initialize(cls):
-            cls.data = "data2"
-            cls._init_counter += 1
+        def __init__(self):
+            self.data = "data2"
+            self._init_counter += 1
     
     # Access first provider - should trigger setup
     Provider1.set_data("data1-modified")

@@ -9,7 +9,7 @@ from ..exceptions import (
     SetupError,
     AttributeNotInitialized,
     ProviderDefinitionError,
-    InitializeCalledDirectly,
+    InitCalledDirectly,
 )
 from ._utils import _initialize_provider_chain
 
@@ -19,7 +19,7 @@ __all__ = ["ProviderMetaclass"]
 
 
 class ProviderMetaclass(ABCMeta):
-    __provider_configured__: bool = False
+    __provider_setup_done__: bool = False
     __provider_setup_hook__: Callable | None = None
 
     def __new__(
@@ -30,32 +30,12 @@ class ProviderMetaclass(ABCMeta):
         /,
         **kwds: Any,
     ) -> Self:
-        # All providers must define or inherit an initialize() class method.
-        if "initialize" not in namespace:
-            found = False
-            for base in bases:
-                if hasattr(base, "__provider_initialize__"):
-                    found = True
-                    break
-            if not found:
-                raise ProviderDefinitionError(
-                    f"{name} must define or inherit an initialize() class method"
-                )
-        
-        if (
-            "initialize" in namespace
-            and not isinstance(namespace["initialize"], classmethod)
-        ):
-            raise ProviderDefinitionError(
-                f"{name}.initialize() method must be decorated with "
-                "@classmethod to comply with the provider protocol"
-            )
-
-        # All other methods must be decorated with @classmethod or
-        # @staticmethod.
+        # All methods other than __init__ must be decorated with @classmethod
+        # or @staticmethod.
         for attr, value in namespace.items():
             if (
-                isinstance(value, FunctionType)
+                attr != "__init__"
+                and isinstance(value, FunctionType)
                 and not (attr.startswith("__") and attr.endswith("__"))
             ):
                 raise ProviderDefinitionError(
@@ -67,22 +47,22 @@ class ProviderMetaclass(ABCMeta):
         annotations: dict[str, Any] = namespace.get("__annotations__", {})
         new_ns: dict[str, Any] = {}
 
-        def _initialize_plug(*args: Any, **kwargs: Any) -> None:
-            """Prevent users from calling initialize() directly.
+        def _init_plug(*args: Any, **kwargs: Any) -> None:
+            """Prevent users from calling __init__() directly.
             
-            The initialize() method is only meant to be called by the provider
+            The __init__() method is only meant to be called by the provider
             initialization process.
             """
-            raise InitializeCalledDirectly(name)
-        _initialize_plug.__name__ = "initialize"
+            raise InitCalledDirectly(name)
+        _init_plug.__name__ = "__init__"
 
         for attr, value in namespace.items():
-            if attr == "initialize":
-                # The mandatory initialize() method is hijacked and hidden
+            if attr == "__init__":
+                # The mandatory __init__() method is hijacked and hidden
                 # from the user.
-                value.__name__ = "__provider_initialize__"
-                new_ns["__provider_initialize__"] = value
-                new_ns["initialize"] = classmethod(_initialize_plug)
+                value.__name__ = "__provider_init__"
+                new_ns["__provider_init__"] = classmethod(value)
+                new_ns["__init__"] = classmethod(_init_plug)
             else:
                 # Class methods, static methods, attributes with values are
                 # all passed as is.
@@ -117,12 +97,12 @@ class ProviderMetaclass(ABCMeta):
         # per runtime. It is designed to configure logging, disable warnings,
         # or monkey-patch things before the rest of the application starts.
         if (
-            not ProviderMetaclass.__provider_configured__
+            not ProviderMetaclass.__provider_setup_done__
             and ProviderMetaclass.__provider_setup_hook__ is not None
         ):
             try:
                 ProviderMetaclass.__provider_setup_hook__()
-                ProviderMetaclass.__provider_configured__ = True
+                ProviderMetaclass.__provider_setup_done__ = True
                 logger.info("Setup hook executed successfully.")
             except Exception as e:
                 raise SetupError(e) from e

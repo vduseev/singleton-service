@@ -36,10 +36,9 @@ class BaseProvider(ABC, metaclass=ProviderMetaclass):
             refresh_timestamp: datetime
             refresh_interval: timedelta = timedelta(minutes=10)
             
-            @classmethod
-            def initialize(cls) -> None:
+            def __init__(self) -> None:
                 # Load initial data
-                cls.refresh()
+                self.refresh()
 
             @init
             def get_user(cls, user_id: int) -> User | None:
@@ -55,7 +54,7 @@ class BaseProvider(ABC, metaclass=ProviderMetaclass):
     """
     __provider_initialized__: bool = False
     __provider_dependencies__: set[type[_T]] = set()
-    __provider_initialize__: Callable[..., bool | None] | None = None
+    __provider_init__: Callable[..., bool | None] | None = None
     __provider_guarded_attrs__: set[str] = set()
 
     def __new__(cls, *args, **kwargs) -> "BaseProvider":
@@ -85,24 +84,3 @@ class BaseProvider(ABC, metaclass=ProviderMetaclass):
             f"{cls.__name__} is a singleton provider and cannot be instantiated. "
             "Use class methods directly instead."
         )
-
-    @classmethod
-    def initialize(cls) -> bool | None:
-        """Initialize the provider.
-        
-        This method is called automatically by the framework when the provider
-        is first accessed. Override this method to set up any resources your
-        provider needs, such as database connections, API clients, or other
-        external resources.
-        
-        Calling @init decorated methods from initialize() will raise a
-        SelfDependency error.
-        
-        Returns:
-            True or None if initialization was successful. False if
-            initialization failed.
-        
-        Note:
-            - This method is called exactly once per provider during the application lifecycle
-            - Calling this method directly will raise a RuntimeError.
-        """

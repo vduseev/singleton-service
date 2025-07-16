@@ -11,10 +11,9 @@ class UsersDatabase(BaseProvider):
     _init_counter = 0
     _users: dict[int, str] = {}
 
-    @classmethod
-    def initialize(cls):
-        cls._users = {1: "john", 2: "jane"}
-        cls._init_counter += 1
+    def __init__(self):
+        self._users = {1: "john", 2: "jane"}
+        self._init_counter += 1
     
     @init
     def add(cls, id: int, name: str) -> None:
@@ -29,10 +28,9 @@ class UsersCacheProvider(BaseProvider):
     _access_limit = 2
     users: list[str]
 
-    @classmethod
-    def initialize(cls):
-        cls._refresh()
-        cls._init_counter += 1
+    def __init__(self):
+        self._refresh()
+        self._init_counter += 1
 
     @classmethod
     def _refresh(cls):
@@ -51,9 +49,8 @@ class UsersCacheProvider(BaseProvider):
 class UsersService(BaseProvider):
     _init_counter = 0
     
-    @classmethod
-    def initialize(cls):
-        cls._init_counter += 1
+    def __init__(self):
+        self._init_counter += 1
     
     @init
     async def fetch(cls) -> str:
@@ -77,5 +74,5 @@ def clean_sys_modules():
             del sys.modules[module_name]
     
     # Reset metaclass state
-    ProviderMetaclass.__provider_configured__ = False
+    ProviderMetaclass.__provider_setup_done__ = False
     ProviderMetaclass.__provider_setup_hook_ = None

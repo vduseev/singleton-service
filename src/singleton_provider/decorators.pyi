@@ -35,7 +35,7 @@ class init(Generic[_PT, _P, _R_co]):
     Note:
         - Works with both synchronous and asynchronous methods
         - Every provider is only ever initialized once
-        - Cannot be called from within the same provider's initialize() method
+        - Cannot be called from within the same provider's __init__() method
         
     Examples:
 
@@ -109,7 +109,7 @@ class init(Generic[_PT, _P, _R_co]):
 
     # # if additionally decorated with @classmethod, this will be a callable
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
-    # _is_coroutine: bool
+    _is_coroutine: bool
 
 
 

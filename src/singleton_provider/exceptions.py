@@ -87,31 +87,30 @@ class SetupError(ProviderError):
         )
 
 
-class InitializeReturnedFalse(ProviderError):
-    """Raised when a provider's initialize() method returns False.
+class InitReturnedFalse(ProviderError):
+    """Raised when a provider's __init__() method returns False.
     
-    This error occurs when the provider's initialize() method returns False.
+    This error occurs when the provider's __init__() method returns False.
     """
     
     def __init__(self, provider: str):
         super().__init__(
             f"Failed to initialize provider {provider} because "
-            "initialize() returned False."
+            "__init__() returned False."
         )
 
 
 class ProviderInitializationError(ProviderError):
     """Raised when a provider fails to initialize properly.
     
-    This error occurs when the provider's initialize() method raises an exception.
+    This error occurs when the provider's __init__() method raises an exception.
     
     Example:
         ```python
         class DatabaseProvider(BaseProvider):
-            @classmethod
-            def initialize(cls) -> None:
+            def __init__(self) -> None:
                 # This might raise an exception
-                cls._connection = connect_to_database()
+                self._connection = connect_to_database()
         ```
     """
     
@@ -128,11 +127,11 @@ class SelfDependency(ProviderError):
 
     Calling provider class method decorated with @init causes the provider
     and its dependencies to be initialized, if they weren't already. Calling
-    an @init decorated method from within initialize() creates a self
+    an @init decorated method from within __init__() creates a self
     dependency loop.
 
     Methods decorated with @classmethod or @staticmethod can be called from
-    within initialize() without causing a self dependency loop, but cannot
+    within __init__() without causing a self dependency loop, but cannot
     rely on uninitialized attributes or other @init decorated methods.
     
     Example:
@@ -140,10 +139,9 @@ class SelfDependency(ProviderError):
         class UserProvider(BaseProvider):
             users: list[str]
 
-            @classmethod
-            def initialize(cls) -> None:
-                cls.users = cls.load_users() # ← This is fine.
-                cls.add_user("user3") # ← This will raise SelfDependency.
+            def __init__(self) -> None:
+                self.users = self.load_users() # ← This is fine.
+                self.add_user("user3") # ← This will raise SelfDependency.
 
             @classmethod
             def load_users(cls) -> list[str]:
@@ -158,7 +156,7 @@ class SelfDependency(ProviderError):
     def __init__(self, name: str, method: str):
         super().__init__(
             f"Provider method {method} decorated with @init was called "
-            f"from within initialize() of its class {name}"
+            f"from within __init__() of its class {name}"
         )
 
 
@@ -172,7 +170,7 @@ class AttributeNotInitialized(ProviderError):
     def __init__(self, provider: str, attr: str):
         super().__init__(
             f"Provider {provider} attribute {attr} was never "
-            "set in initialize()."
+            "initialized."
         )
 
 
@@ -180,10 +178,10 @@ class ProviderDefinitionError(ProviderError):
     """Raised when a provider is defined incorrectly."""
 
 
-class InitializeCalledDirectly(ProviderError):
-    """Raised when a provider's initialize() method is called directly."""
+class InitCalledDirectly(ProviderError):
+    """Raised when a provider's __init__() method is called directly."""
 
     def __init__(self, provider: str):
         super().__init__(
-            f"Provider {provider} initialize() method cannot be called directly."
+            f"Cannot call method {provider}.__init__() directly."
         )

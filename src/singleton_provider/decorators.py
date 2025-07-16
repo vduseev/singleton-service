@@ -35,7 +35,7 @@ def init(
     Note:
         - Works with both synchronous and asynchronous methods
         - Every provider is only ever initialized once
-        - Cannot be called from within the same provider's initialize() method
+        - Cannot be called from within the same provider's __init__() method
         
     Examples:
 
@@ -78,10 +78,10 @@ def init(
         ```
     """
     func_ = func.__func__ if isinstance(func, classmethod) else func
-    if func_.__name__ == "initialize":
+    if func_.__name__ == "__init__":
         raise ProviderDefinitionError(
             f"{func_.__qualname__} is a reserved method and cannot be "
-            "decorated with @init. Use @classmethod instead"
+            "decorated with @init."
         )
     
     guarded_func = _wrap_guarded_method(func_)

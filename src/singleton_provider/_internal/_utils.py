@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 from ..exceptions import (
     CircularDependency,
     InitializationOrderMismatch,
-    InitializeReturnedFalse,
+    InitReturnedFalse,
     ProviderInitializationError,
     SelfDependency,
 )
@@ -30,7 +30,7 @@ _PT = TypeVar("_PT", bound="BaseProvider")
 
 logger = logging.getLogger("singleton_provider")
 _sync_init_lock = threading.RLock()
-"""Guarantee that two threads cannot call initialize() of the same provider
+"""Guarantee that two threads cannot call __init__() of the same provider
 at the same time."""
 
 __all__ = ["_initialize_provider_chain", "_wrap_guarded_method"]
@@ -133,7 +133,7 @@ def _raise_on_self_dependency(
     try:
         while frame:
             if frame.f_code.co_qualname.endswith(
-                f"{cls.__name__}.initialize",
+                f"{cls.__name__}.__init__",
             ):
                 raise SelfDependency(cls.__name__, method.__name__)
             frame = frame.f_back
@@ -175,14 +175,14 @@ def _initialize_provider_chain(
             if not p.__provider_initialized__:
                 try:
                     logger.debug(f"Initializing provider {p.__name__}...")
-                    result = p.__provider_initialize__()
+                    result = p.__provider_init__()
                     if result is False:
-                        raise InitializeReturnedFalse(p.__name__)
+                        raise InitReturnedFalse(p.__name__)
                     p.__provider_initialized__ = True
                     logger.info(f"Provider {p.__name__} initialized successfully")
                 except SelfDependency as e:
                     raise e
-                except InitializeReturnedFalse as e:
+                except InitReturnedFalse as e:
                     raise e
                 except Exception as e:
                     raise ProviderInitializationError(
