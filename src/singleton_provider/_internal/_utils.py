@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 from ..exceptions import (
     CircularDependency,
     InitializationOrderMismatch,
-    InitReturnedFalse,
     ProviderInitializationError,
     SelfDependency,
 )
@@ -175,14 +174,11 @@ def _initialize_provider_chain(
             if not p.__provider_initialized__:
                 try:
                     logger.debug(f"Initializing provider {p.__name__}...")
-                    result = p.__provider_init__()
-                    if result is False:
-                        raise InitReturnedFalse(p.__name__)
+                    if p.__provider_init__ is not None:
+                        p.__provider_init__()
                     p.__provider_initialized__ = True
                     logger.info(f"Provider {p.__name__} initialized successfully")
                 except SelfDependency as e:
-                    raise e
-                except InitReturnedFalse as e:
                     raise e
                 except Exception as e:
                     raise ProviderInitializationError(

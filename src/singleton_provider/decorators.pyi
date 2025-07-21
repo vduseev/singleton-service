@@ -44,7 +44,7 @@ class init(Generic[_PT, _P, _R_co]):
         @requires(DatabaseProvider)
         class UserProvider(BaseProvider):
             @init
-            def get_user(cls, user_id: int) -> User:
+            def get_user(self, user_id: int) -> User:
                 # DatabaseProvider guaranteed to be initialized here
                 return DatabaseProvider.fetch_user(user_id)
         ```
@@ -54,7 +54,7 @@ class init(Generic[_PT, _P, _R_co]):
         @requires(APIProvider)
         class WeatherProvider(BaseProvider):
             @init
-            async def get_weather(cls, city: str) -> Weather:
+            async def get_weather(self, city: str) -> Weather:
                 # APIProvider guaranteed to be initialized here
                 return await APIProvider.fetch_weather(city)
         ```
@@ -65,7 +65,7 @@ class init(Generic[_PT, _P, _R_co]):
         class UserProvider(BaseProvider):
             @init
             @asynccontextmanager
-            async def get_user_with_metrics(cls, user_id: int) -> AsyncGenerator[User, None]:
+            async def get_user_with_metrics(self, user_id: int) -> AsyncGenerator[User, None]:
                 # All three providers
                 
                 cached = CacheProvider.get(f'user:{user_id}')
@@ -81,9 +81,16 @@ class init(Generic[_PT, _P, _R_co]):
     def __func__(self) -> Callable[Concatenate[type[_PT], _P], _R_co]: ...
     @property
     def __isabstractmethod__(self) -> bool: ...
+    @overload
     def __init__(
         self,
         f: Callable[Concatenate[type[_PT], _P], _R_co],
+        /,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        f: Callable[Concatenate[_PT, _P], _R_co],
         /,
     ) -> None: ...
     @overload

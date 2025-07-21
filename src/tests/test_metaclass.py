@@ -17,8 +17,8 @@ def test_basic(clean_sys_modules):
             self._init_counter += 1
 
         @init
-        def get_guarded_attr(cls) -> str:
-            return cls.guarded_attr
+        def get_guarded_attr(self) -> str:
+            return self.guarded_attr
 
     # Metaclass
     assert TestProvider.__class__ is ProviderMetaclass

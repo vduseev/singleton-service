@@ -1,13 +1,7 @@
-import inspect
 from abc import ABC
 from collections.abc import Callable
-from typing import TypeVar
 
-from .exceptions import ProviderDefinitionError
 from ._internal._metaclass import ProviderMetaclass
-
-
-_T = TypeVar("_T", bound="BaseProvider")
 
 
 __all__ = ["BaseProvider", "ProviderMetaclass"]
@@ -41,10 +35,10 @@ class BaseProvider(ABC, metaclass=ProviderMetaclass):
                 self.refresh()
 
             @init
-            def get_user(cls, user_id: int) -> User | None:
-                if cls.refresh_timestamp < datetime.now() - cls.refresh_interval:
-                    cls.refresh()
-                return cls.users.get(user_id)
+            def get_user(self, user_id: int) -> User | None:
+                if self.refresh_timestamp < datetime.now() - self.refresh_interval:
+                    self.refresh()
+                return self.users.get(user_id)
                 
             @classmethod
             def refresh(cls) -> None:
@@ -53,7 +47,7 @@ class BaseProvider(ABC, metaclass=ProviderMetaclass):
         ```
     """
     __provider_initialized__: bool = False
-    __provider_dependencies__: set[type[_T]] = set()
+    __provider_dependencies__: set[type["BaseProvider"]] = set()
     __provider_init__: Callable[..., bool | None] | None = None
     __provider_guarded_attrs__: set[str] = set()
 

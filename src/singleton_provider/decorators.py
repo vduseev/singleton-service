@@ -44,7 +44,7 @@ def init(
         @requires(DatabaseProvider)
         class UserProvider(BaseProvider):
             @init
-            def get_user(cls, user_id: int) -> User:
+            def get_user(self, user_id: int) -> User:
                 # DatabaseProvider guaranteed to be initialized here
                 return DatabaseProvider.fetch_user(user_id)
         ```
@@ -54,7 +54,7 @@ def init(
         @requires(APIProvider)
         class WeatherProvider(BaseProvider):
             @init
-            async def get_weather(cls, city: str) -> Weather:
+            async def get_weather(self, city: str) -> Weather:
                 # APIProvider guaranteed to be initialized here
                 return await APIProvider.fetch_weather(city)
         ```
@@ -65,7 +65,7 @@ def init(
         class UserProvider(BaseProvider):
             @init
             @asynccontextmanager
-            async def get_user_with_metrics(cls, user_id: int) -> AsyncGenerator[User, None]:
+            async def get_user_with_metrics(self, user_id: int) -> AsyncGenerator[User, None]:
                 # All three providers
                 
                 cached = CacheProvider.get(f'user:{user_id}')
@@ -86,8 +86,6 @@ def init(
     
     guarded_func = _wrap_guarded_method(func_)
     return classmethod(guarded_func)
-
-
 
 
 def requires(

@@ -12,39 +12,42 @@ class UsersDatabase(BaseProvider):
     _users: dict[int, str] = {}
 
     def __init__(self):
-        self._users = {1: "john", 2: "jane"}
+        self._users = self.fetch()
         self._init_counter += 1
     
     @init
-    def add(cls, id: int, name: str) -> None:
-        cls._users[id] = name
+    def get(self, id: int) -> str:
+        return self._users[id]
+
+    @init
+    def add(self, id: int, name: str) -> None:
+        self._users[id] = name
+
+    @classmethod
+    def fetch(cls) -> dict[int, str]:
+        return {1: "john", 2: "jane"}
 
 
 @requires(UsersDatabase)
 class UsersCacheProvider(BaseProvider):
     _init_counter = 0
-    _refresh_counter = 0
     _access_counter = 0
     _access_limit = 2
-    users: list[str]
+    _users: dict[int, str]
 
     def __init__(self):
-        self._refresh()
+        self._users = {}
         self._init_counter += 1
 
-    @classmethod
-    def _refresh(cls):
-        cls.users = UsersDatabase.fetch()
-        cls._access_counter = 0
-        cls._refresh_counter += 1
-
     @init
-    def get(cls) -> str:
-        cls._access_counter += 1
-        if cls._access_counter > cls._access_limit:
-            cls._refresh()
-        return cls.users
-    
+    def get(self, id: int) -> str:
+        self._access_counter += 1
+        if id not in self._users:
+            self._users[id] = UsersDatabase.get(id)
+        elif self._access_counter > self._access_limit:
+            self._users[id] = UsersDatabase.get(id)
+        return self._users[id]
+
 
 class UsersService(BaseProvider):
     _init_counter = 0
@@ -53,7 +56,7 @@ class UsersService(BaseProvider):
         self._init_counter += 1
     
     @init
-    async def fetch(cls) -> str:
+    async def fetch(self) -> str:
         await asyncio.sleep(0)  # Yield control to event loop
         return "async_data"
 
@@ -75,4 +78,4 @@ def clean_sys_modules():
     
     # Reset metaclass state
     ProviderMetaclass.__provider_setup_done__ = False
-    ProviderMetaclass.__provider_setup_hook_ = None
+    ProviderMetaclass.__provider_setup_hook__ = None

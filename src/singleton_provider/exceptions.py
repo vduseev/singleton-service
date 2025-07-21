@@ -87,19 +87,6 @@ class SetupError(ProviderError):
         )
 
 
-class InitReturnedFalse(ProviderError):
-    """Raised when a provider's __init__() method returns False.
-    
-    This error occurs when the provider's __init__() method returns False.
-    """
-    
-    def __init__(self, provider: str):
-        super().__init__(
-            f"Failed to initialize provider {provider} because "
-            "__init__() returned False."
-        )
-
-
 class ProviderInitializationError(ProviderError):
     """Raised when a provider fails to initialize properly.
     
@@ -148,8 +135,8 @@ class SelfDependency(ProviderError):
                 return ["user1", "user2"]
 
             @init
-            def add_user(cls, user: str) -> None:
-                cls.users.append(user)  
+            def add_user(self, user: str) -> None:
+                self.users.append(user)  
         ```
     """
     

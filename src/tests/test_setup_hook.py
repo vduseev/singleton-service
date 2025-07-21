@@ -24,8 +24,8 @@ def test_setup_runs_once(clean_sys_modules):
             self._init_counter += 1
         
         @init
-        def set_data(cls, data: str):
-            cls._data = data
+        def set_data(self, data: str):
+            self._data = data
     
     class Provider2(BaseProvider):
         data: str
@@ -50,13 +50,13 @@ def test_setup_runs_once(clean_sys_modules):
 
 def test_setup_raises_if_coroutine(clean_sys_modules):
     with pytest.raises(ProviderDefinitionError, match="is a coroutine and cannot be used as a setup function"):
-        @setup
+        @setup  # type: ignore[arg-type]
         async def test_setup():
             pass
 
 
 def test_setup_raises_if_expects_arguments(clean_sys_modules):
     with pytest.raises(ProviderDefinitionError, match="is a function that expects arguments and cannot be used as a setup function"):
-        @setup
+        @setup  # type: ignore[arg-type]
         def test_setup(arg: str):
             pass
